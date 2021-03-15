@@ -50,5 +50,10 @@ public class TaskHandler implements HandlerTask {
 }
 ~~~
 
+### since 1.0.4
+#### 新增
+1. 期望获取时间参数，可以通过直接设置延迟任务获取时间
+2. 增加`Supplier`,`Function`函数式接口用于制定延迟任务
+
 
 
