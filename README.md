@@ -49,6 +49,8 @@ public class TaskHandler implements HandlerTask {
     }
 }
 ~~~
+[注]
+注解中listener属性支持Spring SPEL表达式
 
 ### since 1.0.1
 #### 新增
