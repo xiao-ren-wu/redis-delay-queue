@@ -1,17 +1,20 @@
 package org.ywb.redisdelayqueue.queue;
 
+
+import org.ywb.redisdelayqueue.config.properties.DelayQueueProperties;
+import org.ywb.redisdelayqueue.support.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.EmbeddedValueResolverAware;
 import org.springframework.core.env.Environment;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
-import org.ywb.redisdelayqueue.config.properties.DelayQueueProperties;
-import org.ywb.redisdelayqueue.support.*;
+import org.springframework.util.StringValueResolver;
 
 import javax.annotation.Resource;
 import java.util.*;
@@ -25,7 +28,7 @@ import java.util.function.Supplier;
  */
 @Slf4j
 @Component
-public class DelayQueuePolling implements ApplicationRunner, ApplicationContextAware {
+public class DelayQueuePolling implements ApplicationRunner, ApplicationContextAware, EmbeddedValueResolverAware {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -38,6 +41,8 @@ public class DelayQueuePolling implements ApplicationRunner, ApplicationContextA
     private Map<String, HandlerTask> taskContainer;
 
     private String applicationName;
+
+    private StringValueResolver resolver;
 
     @Override
     @SuppressWarnings("all")
@@ -70,6 +75,11 @@ public class DelayQueuePolling implements ApplicationRunner, ApplicationContextA
         this.applicationContext = applicationContext;
     }
 
+    @Override
+    public void setEmbeddedValueResolver(StringValueResolver resolver) {
+        this.resolver = resolver;
+    }
+
     private void fillContainer() {
         Map<String, HandlerTask> beansOfType = applicationContext.getBeansOfType(HandlerTask.class);
         if (beansOfType.isEmpty()) {
@@ -80,10 +90,18 @@ public class DelayQueuePolling implements ApplicationRunner, ApplicationContextA
         beansOfType.forEach((k, v) -> {
             DelayQueueListener queueListener = v.getClass().getAnnotation(DelayQueueListener.class);
             Assert.notNull(queueListener, "实例[" + k + "]未检测到@DelayQueueListener");
-            String topic = queueListener.listen();
-            log.info("register delay queue listener [" + topic + "]");
+            String listen = queueListener.listen();
+            String topic = resolveListener(listen);
+            log.info("register delay queue listener [{}]", topic);
             taskContainer.put(topic, v);
         });
+    }
+
+    private String resolveListener(String listen) {
+        if (listen.startsWith("$")) {
+            return resolver.resolveStringValue(listen);
+        }
+        return listen;
     }
 
     /**
